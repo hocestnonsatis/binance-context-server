@@ -6,7 +6,9 @@ a = Analysis(
     ['src/binance_context_server/server.py'],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=[
+        ('venv/Lib/site-packages/dateparser/data', 'dateparser/data'),
+    ],
     hiddenimports=[
         'dateparser',
         'dateparser.data',

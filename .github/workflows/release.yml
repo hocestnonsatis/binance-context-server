@@ -30,17 +30,17 @@ jobs:
     - name: Build executable (Windows)
       if: matrix.os == 'windows-latest'
       run: |
-        pyinstaller --onefile --name binance-mcp-server --hiddenimport "python_binance" --hiddenimport "pandas_ta" --hiddenimport "dateparser" src/binance_context_server/server.py
+        pyinstaller --onefile --name binance-mcp-server --add-data "venv/Lib/site-packages/dateparser/data;dateparser/data" --hiddenimport "python_binance" --hiddenimport "pandas_ta" --hiddenimport "dateparser" src/binance_context_server/server.py
         
     - name: Build executable (Linux)
       if: matrix.os == 'ubuntu-latest'
       run: |
-        pyinstaller --onefile --name binance-mcp-server-linux --hiddenimport "python_binance" --hiddenimport "pandas_ta" --hiddenimport "dateparser" src/binance_context_server/server.py
+        pyinstaller --onefile --name binance-mcp-server-linux --add-data "venv/lib/python*/site-packages/dateparser/data:dateparser/data" --hiddenimport "python_binance" --hiddenimport "pandas_ta" --hiddenimport "dateparser" src/binance_context_server/server.py
         
     - name: Build executable (macOS)
       if: matrix.os == 'macos-latest'
       run: |
-        pyinstaller --onefile --name binance-mcp-server-macos --hiddenimport "python_binance" --hiddenimport "pandas_ta" --hiddenimport "dateparser" src/binance_context_server/server.py
+        pyinstaller --onefile --name binance-mcp-server-macos --add-data "venv/lib/python*/site-packages/dateparser/data:dateparser/data" --hiddenimport "python_binance" --hiddenimport "pandas_ta" --hiddenimport "dateparser" src/binance_context_server/server.py
         
     - name: Build Python package
       run: |
