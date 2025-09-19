@@ -58,10 +58,16 @@ A comprehensive MCP (Model Context Protocol) server for Binance cryptocurrency m
 
 ## Installation
 
-### Option 1: From Source
+### Option 1: Install from PyPI (Recommended)
+
+```bash
+pip install binance-context-server
+```
+
+### Option 2: From Source
 1. Clone the repository:
 ```bash
-git clone <repository-url>
+git clone https://github.com/hocestnonsatis/binance-context-server.git
 cd binance-context-server
 ```
 
@@ -76,8 +82,8 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -e .
 ```
 
-### Option 2: Using Pre-built Executable
-Download the pre-built Windows executable from the `dist/` folder:
+### Option 3: Using Pre-built Executable
+Download the pre-built Windows executable from the [Releases](https://github.com/hocestnonsatis/binance-context-server/releases) page:
 ```bash
 # Run the executable directly
 ./dist/binance-mcp-server.exe
