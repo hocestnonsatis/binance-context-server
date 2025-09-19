@@ -10,9 +10,9 @@ from mcp.server.models import InitializationOptions
 from mcp.server.stdio import stdio_server
 from mcp.types import Resource, TextContent, ImageContent, EmbeddedResource
 
-from .binance_client import BinanceClientWrapper
-from .tools import BinanceTools
-from .resources import BinanceResources
+from binance_context_server.binance_client import BinanceClientWrapper
+from binance_context_server.tools import BinanceTools
+from binance_context_server.resources import BinanceResources
 
 
 # Configure logging

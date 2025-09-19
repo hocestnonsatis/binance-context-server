@@ -217,3 +217,129 @@ class BinanceClientWrapper:
         except Exception as e:
             logger.error(f"Error getting exchange info: {e}")
             raise
+    
+    async def get_recent_trades(self, symbol: str, limit: int = 100) -> List[Dict[str, Any]]:
+        """Get recent trades for a symbol.
+        
+        Args:
+            symbol: Trading pair symbol (e.g., BTCUSDT)
+            limit: Number of trades to return (max 1000)
+            
+        Returns:
+            List of recent trades
+        """
+        try:
+            data = self.client.get_recent_trades(symbol=symbol.upper(), limit=limit)
+            return data
+        except BinanceAPIException as e:
+            logger.error(f"Binance API error getting recent trades: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Error getting recent trades: {e}")
+            raise
+    
+    async def get_historical_trades(self, symbol: str, limit: int = 100, from_id: Optional[int] = None) -> List[Dict[str, Any]]:
+        """Get historical trades for a symbol.
+        
+        Args:
+            symbol: Trading pair symbol (e.g., BTCUSDT)
+            limit: Number of trades to return (max 1000)
+            from_id: Trade ID to fetch from (optional)
+            
+        Returns:
+            List of historical trades
+        """
+        if not (self.api_key and self.api_secret):
+            raise ValueError("API credentials required for historical trades")
+            
+        try:
+            kwargs = {'symbol': symbol.upper(), 'limit': limit}
+            if from_id:
+                kwargs['fromId'] = from_id
+                
+            data = self.client.get_historical_trades(**kwargs)
+            return data
+        except BinanceAPIException as e:
+            logger.error(f"Binance API error getting historical trades: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Error getting historical trades: {e}")
+            raise
+    
+    async def get_avg_price(self, symbol: str) -> Dict[str, Any]:
+        """Get current average price for a symbol.
+        
+        Args:
+            symbol: Trading pair symbol (e.g., BTCUSDT)
+            
+        Returns:
+            Average price data
+        """
+        try:
+            data = self.client.get_avg_price(symbol=symbol.upper())
+            return data
+        except BinanceAPIException as e:
+            logger.error(f"Binance API error getting avg price: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Error getting avg price: {e}")
+            raise
+    
+    async def get_price_change_statistics(self, symbols: List[str]) -> List[Dict[str, Any]]:
+        """Get 24hr ticker price change statistics for multiple symbols.
+        
+        Args:
+            symbols: List of trading pair symbols
+            
+        Returns:
+            List of ticker statistics
+        """
+        try:
+            data = self.client.get_ticker()
+            # Filter for requested symbols
+            filtered_data = [item for item in data if item['symbol'] in [s.upper() for s in symbols]]
+            return filtered_data
+        except BinanceAPIException as e:
+            logger.error(f"Binance API error getting price change statistics: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Error getting price change statistics: {e}")
+            raise
+    
+    async def get_server_time(self) -> Dict[str, Any]:
+        """Get Binance server time.
+        
+        Returns:
+            Server time data
+        """
+        try:
+            data = self.client.get_server_time()
+            return data
+        except BinanceAPIException as e:
+            logger.error(f"Binance API error getting server time: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Error getting server time: {e}")
+            raise
+    
+    async def get_symbol_info(self, symbol: str) -> Dict[str, Any]:
+        """Get detailed information about a trading pair.
+        
+        Args:
+            symbol: Trading pair symbol (e.g., BTCUSDT)
+            
+        Returns:
+            Symbol information
+        """
+        try:
+            data = self.client.get_exchange_info()
+            for symbol_info in data['symbols']:
+                if symbol_info['symbol'] == symbol.upper():
+                    return symbol_info
+            raise ValueError(f"Symbol {symbol} not found")
+        except BinanceAPIException as e:
+            logger.error(f"Binance API error getting symbol info: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Error getting symbol info: {e}")
+            raise
