@@ -42,7 +42,7 @@ jobs:
         .\dist\binance-mcp-server.exe --help || echo "Executable built successfully"
         
     - name: Upload build artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: build-artifacts
         path: |
