@@ -137,3 +137,4 @@ Thumbs.db
 *.log
 .env.local
 .env.production
+.pypirc
