@@ -64,6 +64,32 @@ A comprehensive MCP (Model Context Protocol) server for Binance cryptocurrency m
 pip install binance-context-server
 ```
 
+### Quick Start
+
+After installation, you can use the package as a Python module:
+
+```python
+from binance_context_server import BinanceClientWrapper
+import asyncio
+
+async def main():
+    client = BinanceClientWrapper()
+    
+    # Get Bitcoin price
+    btc_price = await client.get_symbol_price(symbol="BTCUSDT")
+    print(f"BTC: ${float(btc_price['price']):,.2f}")
+    
+    # Get market statistics
+    stats = await client.get_ticker_24hr(symbol="ETHUSDT")
+    if stats:
+        eth = stats[0]
+        print(f"ETH: ${float(eth.lastPrice):,.2f}")
+
+asyncio.run(main())
+```
+
+**📖 For detailed usage examples, see [USAGE_GUIDE.md](USAGE_GUIDE.md)**
+
 ### Option 2: From Source
 1. Clone the repository:
 ```bash
