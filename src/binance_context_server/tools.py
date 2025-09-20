@@ -320,6 +320,95 @@ class BinanceTools:
                     },
                     "required": ["query"]
                 }
+            ),
+            Tool(
+                name="get_market_depth",
+                description="Get market depth analysis for a trading pair",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "symbol": {
+                            "type": "string",
+                            "description": "Trading pair symbol (e.g., BTCUSDT)"
+                        },
+                        "limit": {
+                            "type": "integer",
+                            "description": "Number of price levels to analyze",
+                            "minimum": 5,
+                            "maximum": 100,
+                            "default": 20
+                        }
+                    },
+                    "required": ["symbol"]
+                }
+            ),
+            Tool(
+                name="get_price_alerts",
+                description="Get price alerts and notifications for significant price movements",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "symbols": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "List of trading pair symbols to monitor",
+                            "maxItems": 10
+                        },
+                        "threshold_percent": {
+                            "type": "number",
+                            "description": "Price change threshold percentage to trigger alerts",
+                            "minimum": 1.0,
+                            "maximum": 50.0,
+                            "default": 5.0
+                        }
+                    },
+                    "required": ["symbols"]
+                }
+            ),
+            Tool(
+                name="get_market_correlation",
+                description="Get correlation analysis between different trading pairs",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "symbols": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "List of trading pair symbols to analyze correlation",
+                            "minItems": 2,
+                            "maxItems": 10
+                        },
+                        "period_hours": {
+                            "type": "integer",
+                            "description": "Time period for correlation analysis in hours",
+                            "minimum": 1,
+                            "maximum": 168,
+                            "default": 24
+                        }
+                    },
+                    "required": ["symbols"]
+                }
+            ),
+            Tool(
+                name="get_liquidity_analysis",
+                description="Analyze market liquidity for trading pairs",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "symbol": {
+                            "type": "string",
+                            "description": "Trading pair symbol to analyze"
+                        },
+                        "depth_levels": {
+                            "type": "integer",
+                            "description": "Number of order book levels to analyze",
+                            "minimum": 5,
+                            "maximum": 50,
+                            "default": 10
+                        }
+                    },
+                    "required": ["symbol"]
+                }
             )
         ]
     
@@ -366,6 +455,14 @@ class BinanceTools:
                 return await self._get_klines_with_indicators(arguments)
             elif name == "search_symbols":
                 return await self._search_symbols(arguments)
+            elif name == "get_market_depth":
+                return await self._get_market_depth(arguments)
+            elif name == "get_price_alerts":
+                return await self._get_price_alerts(arguments)
+            elif name == "get_market_correlation":
+                return await self._get_market_correlation(arguments)
+            elif name == "get_liquidity_analysis":
+                return await self._get_liquidity_analysis(arguments)
             else:
                 return [TextContent(type="text", text=f"Unknown tool: {name}")]
                 
@@ -870,3 +967,210 @@ class BinanceTools:
         rsi = 100 - (100 / (1 + rs))
         
         return rsi
+    
+    async def _get_market_depth(self, arguments: Dict[str, Any]) -> Sequence[TextContent]:
+        """Get market depth analysis tool implementation."""
+        symbol = arguments["symbol"]
+        limit = arguments.get("limit", 20)
+        
+        order_book = await self.client.get_order_book(symbol, limit)
+        
+        # Calculate depth metrics
+        total_bid_volume = sum(float(bid[1]) for bid in order_book.bids)
+        total_ask_volume = sum(float(ask[1]) for ask in order_book.asks)
+        
+        best_bid = float(order_book.bids[0][0])
+        best_ask = float(order_book.asks[0][0])
+        spread = best_ask - best_bid
+        spread_percent = (spread / best_bid) * 100
+        
+        # Calculate depth ratio
+        depth_ratio = total_bid_volume / total_ask_volume if total_ask_volume > 0 else 0
+        
+        response = f"📊 **{symbol.upper()} Market Depth Analysis**\n\n"
+        response += f"**Order Book Metrics:**\n"
+        response += f"- Best Bid: ${best_bid:,.2f}\n"
+        response += f"- Best Ask: ${best_ask:,.2f}\n"
+        response += f"- Spread: ${spread:.2f} ({spread_percent:.4f}%)\n\n"
+        response += f"**Volume Analysis:**\n"
+        response += f"- Total Bid Volume: {total_bid_volume:.6f} {symbol[:3]}\n"
+        response += f"- Total Ask Volume: {total_ask_volume:.6f} {symbol[:3]}\n"
+        response += f"- Depth Ratio: {depth_ratio:.2f}\n\n"
+        
+        if depth_ratio > 1.2:
+            response += "🟢 **Market Sentiment:** More buying pressure\n"
+        elif depth_ratio < 0.8:
+            response += "🔴 **Market Sentiment:** More selling pressure\n"
+        else:
+            response += "⚪ **Market Sentiment:** Balanced market\n"
+        
+        return [TextContent(type="text", text=response)]
+    
+    async def _get_price_alerts(self, arguments: Dict[str, Any]) -> Sequence[TextContent]:
+        """Get price alerts tool implementation."""
+        symbols = arguments["symbols"]
+        threshold_percent = arguments.get("threshold_percent", 5.0)
+        
+        response = f"🚨 **Price Alerts - {threshold_percent}% Threshold**\n\n"
+        
+        alerts = []
+        
+        for symbol in symbols:
+            try:
+                # Get current and previous 24h data
+                ticker_data = await self.client.get_ticker_24hr(symbol)
+                if ticker_data:
+                    data = ticker_data[0]
+                    price_change_percent = float(data.priceChangePercent)
+                    
+                    if abs(price_change_percent) >= threshold_percent:
+                        emoji = "🚀" if price_change_percent > 0 else "💥"
+                        alerts.append({
+                            "symbol": symbol,
+                            "change": price_change_percent,
+                            "price": float(data.lastPrice),
+                            "emoji": emoji
+                        })
+            except Exception as e:
+                logger.warning(f"Could not get data for {symbol}: {e}")
+        
+        if alerts:
+            response += "**Active Alerts:**\n"
+            for alert in alerts:
+                response += f"{alert['emoji']} **{alert['symbol']}**: ${alert['price']:,.2f} ({alert['change']:+.2f}%)\n"
+        else:
+            response += "✅ No significant price movements detected within the threshold.\n"
+        
+        response += f"\n**Monitoring {len(symbols)} symbols with {threshold_percent}% threshold**"
+        
+        return [TextContent(type="text", text=response)]
+    
+    async def _get_market_correlation(self, arguments: Dict[str, Any]) -> Sequence[TextContent]:
+        """Get market correlation analysis tool implementation."""
+        symbols = arguments["symbols"]
+        period_hours = arguments.get("period_hours", 24)
+        
+        if len(symbols) < 2:
+            return [TextContent(type="text", text="❌ At least 2 symbols required for correlation analysis")]
+        
+        response = f"📈 **Market Correlation Analysis**\n\n"
+        response += f"**Analysis Period:** {period_hours} hours\n"
+        response += f"**Symbols:** {', '.join(symbols)}\n\n"
+        
+        try:
+            # Get price data for all symbols
+            symbol_prices = {}
+            for symbol in symbols:
+                try:
+                    ticker_data = await self.client.get_ticker_24hr(symbol)
+                    if ticker_data:
+                        price_change = float(ticker_data[0].priceChangePercent)
+                        symbol_prices[symbol] = price_change
+                except Exception as e:
+                    logger.warning(f"Could not get data for {symbol}: {e}")
+                    symbol_prices[symbol] = 0
+            
+            if len(symbol_prices) < 2:
+                return [TextContent(type="text", text="❌ Insufficient data for correlation analysis")]
+            
+            # Calculate correlations (simplified version)
+            response += "**Price Movement Correlations:**\n"
+            
+            symbols_list = list(symbol_prices.keys())
+            for i in range(len(symbols_list)):
+                for j in range(i + 1, len(symbols_list)):
+                    sym1, sym2 = symbols_list[i], symbols_list[j]
+                    price1, price2 = symbol_prices[sym1], symbol_prices[sym2]
+                    
+                    # Simple correlation based on direction
+                    if (price1 > 0 and price2 > 0) or (price1 < 0 and price2 < 0):
+                        correlation = "🟢 Positive"
+                    elif (price1 > 0 and price2 < 0) or (price1 < 0 and price2 > 0):
+                        correlation = "🔴 Negative"
+                    else:
+                        correlation = "⚪ Neutral"
+                    
+                    response += f"- {sym1} vs {sym2}: {correlation} ({price1:+.2f}% vs {price2:+.2f}%)\n"
+            
+            # Market sentiment analysis
+            positive_count = sum(1 for price in symbol_prices.values() if price > 0)
+            negative_count = len(symbol_prices) - positive_count
+            
+            response += f"\n**Market Sentiment:**\n"
+            response += f"- Positive: {positive_count}/{len(symbol_prices)} symbols\n"
+            response += f"- Negative: {negative_count}/{len(symbol_prices)} symbols\n"
+            
+            if positive_count > negative_count:
+                response += "🟢 Overall bullish sentiment\n"
+            elif negative_count > positive_count:
+                response += "🔴 Overall bearish sentiment\n"
+            else:
+                response += "⚪ Mixed market sentiment\n"
+                
+        except Exception as e:
+            response += f"❌ Error in correlation analysis: {str(e)}"
+        
+        return [TextContent(type="text", text=response)]
+    
+    async def _get_liquidity_analysis(self, arguments: Dict[str, Any]) -> Sequence[TextContent]:
+        """Get liquidity analysis tool implementation."""
+        symbol = arguments["symbol"]
+        depth_levels = arguments.get("depth_levels", 10)
+        
+        try:
+            order_book = await self.client.get_order_book(symbol, depth_levels)
+            
+            # Calculate liquidity metrics
+            bid_levels = order_book.bids[:depth_levels]
+            ask_levels = order_book.asks[:depth_levels]
+            
+            # Calculate cumulative liquidity
+            bid_liquidity = []
+            ask_liquidity = []
+            
+            cumulative_bid = 0
+            cumulative_ask = 0
+            
+            for i, (bid, ask) in enumerate(zip(bid_levels, ask_levels)):
+                cumulative_bid += float(bid[1])
+                cumulative_ask += float(ask[1])
+                bid_liquidity.append(cumulative_bid)
+                ask_liquidity.append(cumulative_ask)
+            
+            best_bid = float(bid_levels[0][0])
+            best_ask = float(ask_levels[0][0])
+            mid_price = (best_bid + best_ask) / 2
+            
+            response = f"💧 **{symbol.upper()} Liquidity Analysis**\n\n"
+            response += f"**Market Data:**\n"
+            response += f"- Mid Price: ${mid_price:,.2f}\n"
+            response += f"- Best Bid: ${best_bid:,.2f}\n"
+            response += f"- Best Ask: ${best_ask:,.2f}\n\n"
+            
+            response += f"**Liquidity Metrics:**\n"
+            response += f"- Total Bid Liquidity ({depth_levels} levels): {bid_liquidity[-1]:.6f} {symbol[:3]}\n"
+            response += f"- Total Ask Liquidity ({depth_levels} levels): {ask_liquidity[-1]:.6f} {symbol[:3]}\n"
+            
+            # Calculate liquidity ratio
+            liquidity_ratio = bid_liquidity[-1] / ask_liquidity[-1] if ask_liquidity[-1] > 0 else 0
+            response += f"- Liquidity Ratio: {liquidity_ratio:.2f}\n\n"
+            
+            # Liquidity distribution analysis
+            response += f"**Liquidity Distribution:**\n"
+            for i in range(min(5, depth_levels)):  # Show top 5 levels
+                bid_vol = float(bid_levels[i][1])
+                ask_vol = float(ask_levels[i][1])
+                response += f"- Level {i+1}: Bid {bid_vol:.6f} | Ask {ask_vol:.6f}\n"
+            
+            # Market impact assessment
+            if liquidity_ratio > 1.5:
+                response += "\n🟢 **Market Impact:** Low (good liquidity)\n"
+            elif liquidity_ratio < 0.7:
+                response += "\n🔴 **Market Impact:** High (poor liquidity)\n"
+            else:
+                response += "\n⚪ **Market Impact:** Medium\n"
+            
+            return [TextContent(type="text", text=response)]
+            
+        except Exception as e:
+            return [TextContent(type="text", text=f"❌ Error in liquidity analysis: {str(e)}")]

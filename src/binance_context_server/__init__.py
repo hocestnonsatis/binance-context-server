@@ -1,6 +1,6 @@
 """Binance Context Server - MCP Server for Binance cryptocurrency data."""
 
-__version__ = "0.1.0"
+__version__ = "1.0.1"
 __author__ = "hocestnonsatis"
 __email__ = "anil.oz@icloud.com"
 

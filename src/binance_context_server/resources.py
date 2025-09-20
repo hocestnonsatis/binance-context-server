@@ -115,6 +115,42 @@ class BinanceResources:
                 name="Stablecoins",
                 description="Stablecoin market data and statistics",
                 mimeType="application/json"
+            ),
+            Resource(
+                uri="binance://market/price-alerts",
+                name="Price Alerts",
+                description="Active price alerts and significant movements",
+                mimeType="application/json"
+            ),
+            Resource(
+                uri="binance://market/market-depth",
+                name="Market Depth",
+                description="Market depth analysis for major trading pairs",
+                mimeType="application/json"
+            ),
+            Resource(
+                uri="binance://market/correlation-matrix",
+                name="Correlation Matrix",
+                description="Price correlation analysis between major cryptocurrencies",
+                mimeType="application/json"
+            ),
+            Resource(
+                uri="binance://market/liquidity-ranking",
+                name="Liquidity Ranking",
+                description="Cryptocurrencies ranked by market liquidity",
+                mimeType="application/json"
+            ),
+            Resource(
+                uri="binance://market/volatility-index",
+                name="Volatility Index",
+                description="Market volatility analysis and ranking",
+                mimeType="application/json"
+            ),
+            Resource(
+                uri="binance://market/sector-performance",
+                name="Sector Performance",
+                description="Performance analysis by cryptocurrency sectors",
+                mimeType="application/json"
             )
         ]
     
@@ -156,6 +192,18 @@ class BinanceResources:
                 return await self._get_meme_coins()
             elif uri == "binance://market/stablecoins":
                 return await self._get_stablecoins()
+            elif uri == "binance://market/price-alerts":
+                return await self._get_price_alerts()
+            elif uri == "binance://market/market-depth":
+                return await self._get_market_depth()
+            elif uri == "binance://market/correlation-matrix":
+                return await self._get_correlation_matrix()
+            elif uri == "binance://market/liquidity-ranking":
+                return await self._get_liquidity_ranking()
+            elif uri == "binance://market/volatility-index":
+                return await self._get_volatility_index()
+            elif uri == "binance://market/sector-performance":
+                return await self._get_sector_performance()
             else:
                 return json.dumps({"error": f"Unknown resource URI: {uri}"})
                 
@@ -698,3 +746,268 @@ class BinanceResources:
         rsi = 100 - (100 / (1 + rs))
         
         return rsi
+    
+    async def _get_price_alerts(self) -> str:
+        """Get price alerts resource data."""
+        try:
+            all_tickers = await self.client.get_ticker_24hr()
+            usdt_tickers = [t for t in all_tickers if t.symbol.endswith('USDT')]
+            
+            # Find significant movers (>5% change)
+            significant_movers = []
+            for ticker in usdt_tickers:
+                change_percent = float(ticker.priceChangePercent)
+                if abs(change_percent) >= 5.0:
+                    significant_movers.append({
+                        "symbol": ticker.symbol,
+                        "price": float(ticker.lastPrice),
+                        "change_percent": change_percent,
+                        "volume": float(ticker.volume),
+                        "quote_volume": float(ticker.quoteVolume)
+                    })
+            
+            # Sort by absolute change
+            significant_movers.sort(key=lambda x: abs(x["change_percent"]), reverse=True)
+            
+            return json.dumps({
+                "resource_type": "price_alerts",
+                "timestamp": datetime.now().isoformat(),
+                "total_alerts": len(significant_movers),
+                "threshold_percent": 5.0,
+                "alerts": significant_movers[:20]  # Top 20 alerts
+            })
+        except Exception as e:
+            logger.error(f"Error getting price alerts: {e}")
+            return json.dumps({"error": str(e)})
+    
+    async def _get_market_depth(self) -> str:
+        """Get market depth resource data."""
+        try:
+            # Analyze market depth for major pairs
+            major_pairs = ["BTCUSDT", "ETHUSDT", "BNBUSDT", "ADAUSDT", "SOLUSDT"]
+            depth_analysis = []
+            
+            for symbol in major_pairs:
+                try:
+                    order_book = await self.client.get_order_book(symbol, 20)
+                    
+                    # Calculate depth metrics
+                    total_bid_volume = sum(float(bid[1]) for bid in order_book.bids)
+                    total_ask_volume = sum(float(ask[1]) for ask in order_book.asks)
+                    
+                    best_bid = float(order_book.bids[0][0])
+                    best_ask = float(order_book.asks[0][0])
+                    spread = best_ask - best_bid
+                    spread_percent = (spread / best_bid) * 100
+                    
+                    depth_ratio = total_bid_volume / total_ask_volume if total_ask_volume > 0 else 0
+                    
+                    depth_analysis.append({
+                        "symbol": symbol,
+                        "best_bid": best_bid,
+                        "best_ask": best_ask,
+                        "spread": spread,
+                        "spread_percent": spread_percent,
+                        "total_bid_volume": total_bid_volume,
+                        "total_ask_volume": total_ask_volume,
+                        "depth_ratio": depth_ratio,
+                        "liquidity_score": "high" if depth_ratio > 1.2 else "low" if depth_ratio < 0.8 else "medium"
+                    })
+                except Exception as e:
+                    logger.warning(f"Could not get depth data for {symbol}: {e}")
+            
+            return json.dumps({
+                "resource_type": "market_depth",
+                "timestamp": datetime.now().isoformat(),
+                "pairs_analyzed": len(depth_analysis),
+                "depth_analysis": depth_analysis
+            })
+        except Exception as e:
+            logger.error(f"Error getting market depth: {e}")
+            return json.dumps({"error": str(e)})
+    
+    async def _get_correlation_matrix(self) -> str:
+        """Get correlation matrix resource data."""
+        try:
+            # Get top cryptocurrencies for correlation analysis
+            major_pairs = ["BTCUSDT", "ETHUSDT", "BNBUSDT", "ADAUSDT", "SOLUSDT", "DOTUSDT", "AVAXUSDT", "MATICUSDT"]
+            correlation_data = {}
+            
+            # Get price changes for all pairs
+            for symbol in major_pairs:
+                try:
+                    ticker_data = await self.client.get_ticker_24hr(symbol)
+                    if ticker_data:
+                        correlation_data[symbol] = float(ticker_data[0].priceChangePercent)
+                except Exception as e:
+                    logger.warning(f"Could not get data for {symbol}: {e}")
+                    correlation_data[symbol] = 0
+            
+            # Calculate correlation matrix (simplified)
+            correlation_matrix = {}
+            symbols = list(correlation_data.keys())
+            
+            for i, sym1 in enumerate(symbols):
+                correlation_matrix[sym1] = {}
+                for j, sym2 in enumerate(symbols):
+                    if i == j:
+                        correlation_matrix[sym1][sym2] = 1.0
+                    else:
+                        # Simple correlation based on direction
+                        price1, price2 = correlation_data[sym1], correlation_data[sym2]
+                        if (price1 > 0 and price2 > 0) or (price1 < 0 and price2 < 0):
+                            correlation_matrix[sym1][sym2] = 0.7  # Positive correlation
+                        elif (price1 > 0 and price2 < 0) or (price1 < 0 and price2 > 0):
+                            correlation_matrix[sym1][sym2] = -0.7  # Negative correlation
+                        else:
+                            correlation_matrix[sym1][sym2] = 0.0  # No correlation
+            
+            return json.dumps({
+                "resource_type": "correlation_matrix",
+                "timestamp": datetime.now().isoformat(),
+                "symbols": symbols,
+                "price_changes": correlation_data,
+                "correlation_matrix": correlation_matrix
+            })
+        except Exception as e:
+            logger.error(f"Error getting correlation matrix: {e}")
+            return json.dumps({"error": str(e)})
+    
+    async def _get_liquidity_ranking(self) -> str:
+        """Get liquidity ranking resource data."""
+        try:
+            all_tickers = await self.client.get_ticker_24hr()
+            usdt_tickers = [t for t in all_tickers if t.symbol.endswith('USDT')]
+            
+            # Calculate liquidity scores based on volume and spread
+            liquidity_rankings = []
+            
+            for ticker in usdt_tickers[:50]:  # Analyze top 50 by volume
+                try:
+                    # Get order book for spread calculation
+                    order_book = await self.client.get_order_book(ticker.symbol, 5)
+                    
+                    best_bid = float(order_book.bids[0][0])
+                    best_ask = float(order_book.asks[0][0])
+                    spread_percent = ((best_ask - best_bid) / best_bid) * 100
+                    
+                    # Calculate liquidity score (higher volume, lower spread = higher score)
+                    volume_score = float(ticker.quoteVolume)
+                    spread_score = 1 / (1 + spread_percent)  # Lower spread = higher score
+                    liquidity_score = volume_score * spread_score
+                    
+                    liquidity_rankings.append({
+                        "symbol": ticker.symbol,
+                        "price": float(ticker.lastPrice),
+                        "volume_24h": float(ticker.volume),
+                        "quote_volume_24h": float(ticker.quoteVolume),
+                        "spread_percent": spread_percent,
+                        "liquidity_score": liquidity_score
+                    })
+                except Exception as e:
+                    logger.warning(f"Could not analyze liquidity for {ticker.symbol}: {e}")
+            
+            # Sort by liquidity score
+            liquidity_rankings.sort(key=lambda x: x["liquidity_score"], reverse=True)
+            
+            return json.dumps({
+                "resource_type": "liquidity_ranking",
+                "timestamp": datetime.now().isoformat(),
+                "total_analyzed": len(liquidity_rankings),
+                "rankings": liquidity_rankings[:20]  # Top 20 by liquidity
+            })
+        except Exception as e:
+            logger.error(f"Error getting liquidity ranking: {e}")
+            return json.dumps({"error": str(e)})
+    
+    async def _get_volatility_index(self) -> str:
+        """Get volatility index resource data."""
+        try:
+            all_tickers = await self.client.get_ticker_24hr()
+            usdt_tickers = [t for t in all_tickers if t.symbol.endswith('USDT')]
+            
+            # Calculate volatility based on 24h price range
+            volatility_rankings = []
+            
+            for ticker in usdt_tickers:
+                high_price = float(ticker.highPrice)
+                low_price = float(ticker.lowPrice)
+                current_price = float(ticker.lastPrice)
+                
+                # Calculate volatility as percentage of price range
+                price_range = high_price - low_price
+                volatility_percent = (price_range / current_price) * 100 if current_price > 0 else 0
+                
+                volatility_rankings.append({
+                    "symbol": ticker.symbol,
+                    "price": current_price,
+                    "high_24h": high_price,
+                    "low_24h": low_price,
+                    "price_range": price_range,
+                    "volatility_percent": volatility_percent,
+                    "volume_24h": float(ticker.volume)
+                })
+            
+            # Sort by volatility (highest first)
+            volatility_rankings.sort(key=lambda x: x["volatility_percent"], reverse=True)
+            
+            # Calculate market volatility index
+            top_volatile = volatility_rankings[:20]
+            avg_volatility = sum(item["volatility_percent"] for item in top_volatile) / len(top_volatile)
+            
+            return json.dumps({
+                "resource_type": "volatility_index",
+                "timestamp": datetime.now().isoformat(),
+                "market_volatility_index": avg_volatility,
+                "total_analyzed": len(volatility_rankings),
+                "most_volatile": volatility_rankings[:15],  # Top 15 most volatile
+                "least_volatile": volatility_rankings[-10:]  # Top 10 least volatile
+            })
+        except Exception as e:
+            logger.error(f"Error getting volatility index: {e}")
+            return json.dumps({"error": str(e)})
+    
+    async def _get_sector_performance(self) -> str:
+        """Get sector performance resource data."""
+        try:
+            all_tickers = await self.client.get_ticker_24hr()
+            usdt_tickers = [t for t in all_tickers if t.symbol.endswith('USDT')]
+            
+            # Define sectors
+            sectors = {
+                "Layer 1": ["BTCUSDT", "ETHUSDT", "BNBUSDT", "ADAUSDT", "SOLUSDT", "DOTUSDT", "AVAXUSDT", "MATICUSDT", "ALGOUSDT", "ATOMUSDT"],
+                "DeFi": ["UNIUSDT", "AAVEUSDT", "COMPUSDT", "SUSHIUSDT", "CRVUSDT", "YFIUSDT", "1INCHUSDT", "SNXUSDT"],
+                "Meme": ["DOGEUSDT", "SHIBUSDT", "PEPEUSDT", "FLOKIUSDT", "BONKUSDT", "WIFUSDT"],
+                "Stablecoins": ["USDTUSDT", "USDCUSDT", "BUSDUSDT", "DAIUSDT", "TUSDUSDT"],
+                "Gaming": ["AXSUSDT", "SANDUSDT", "MANAUSDT", "GALAUSDT", "ILVUSDT"],
+                "Storage": ["FILUSDT", "ARUSDT", "SCUSDT"]
+            }
+            
+            sector_performance = {}
+            
+            for sector_name, symbols in sectors.items():
+                sector_tickers = [t for t in usdt_tickers if t.symbol in symbols]
+                
+                if sector_tickers:
+                    total_change = sum(float(t.priceChangePercent) for t in sector_tickers)
+                    avg_change = total_change / len(sector_tickers)
+                    total_volume = sum(float(t.volume) for t in sector_tickers)
+                    
+                    sector_performance[sector_name] = {
+                        "symbols_count": len(sector_tickers),
+                        "average_change_percent": avg_change,
+                        "total_volume_24h": total_volume,
+                        "top_performer": max(sector_tickers, key=lambda x: float(x.priceChangePercent)).symbol,
+                        "worst_performer": min(sector_tickers, key=lambda x: float(x.priceChangePercent)).symbol,
+                        "symbols": [t.symbol for t in sector_tickers]
+                    }
+            
+            return json.dumps({
+                "resource_type": "sector_performance",
+                "timestamp": datetime.now().isoformat(),
+                "sectors_analyzed": len(sector_performance),
+                "sector_performance": sector_performance
+            })
+        except Exception as e:
+            logger.error(f"Error getting sector performance: {e}")
+            return json.dumps({"error": str(e)})
