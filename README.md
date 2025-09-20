@@ -12,6 +12,8 @@ MCP (Model Context Protocol) server for accessing Binance cryptocurrency data. P
 
 ## Installation
 
+> **📦 PyPI Only**: This project is distributed exclusively through PyPI. No GitHub releases are created.
+
 ### 1. Install from PyPI (Recommended)
 ```bash
 pip install binance-context-server
